@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing Performance Test</title>
+</head>
+
+<body>
+    <h1>Image Processing Performance Test</h1>
+    <p>Select Image: <input type="file" name="image" id="image" accept=".jpg" /></p>
+    <div>
+        Select reduction color ratio:
+        <label for="red">Red</label> <input type="number" name="red" id="txt-red" value="0.3" min="0" max="1" />
+        <label for="blue">Blue</label> <input type="number" name="blue" id="txt-blue" value="0.11" min="0" max="1" />
+        <label for="green">Green</label> <input type="number" name="green" id="txt-green" value="0.59" min="0"
+            max="1" />
+    </div>
+    <p>Execution Time (JavaScript): <span id="js-time"></span> ms</p>
+    <div style="display: flex; flex-direction: row;">
+        <div style="border: 1px solid #ccc;">
+            <div>Original</div>
+            <canvas id="canvas" width="500" height="500"></canvas>
+        </div>
+        <div style="border: 1px solid #ccc;">
+            <div>Grayed</div>
+            <img style="width: 500px; height: 500px;" id="grayed-img">
+        </div>
+    </div>
+    <br>
+    <button onclick="convertToGrayscaleJS()">Run JS</button>
+    <button onclick="convertToGrayscaleWasm()">Run WASM</button>
+
+    <script>
+        function loadImage() {
+            const img = new Image();
+            const fileInput = document.getElementById('image');
+            const [file] = fileInput.files
+            if (file) {
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+            } else {
+                alert('Please select an image file');
+            }
+        }
+
+        function convertToGrayscaleJS() {
+            loadImage();
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.willReadFrequently = true;
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            const red = parseFloat(document.getElementById('txt-red').value);
+            const blue = parseFloat(document.getElementById('txt-blue').value);
+            const green = parseFloat(document.getElementById('txt-green').value);
+
+            const start = performance.now();
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const grayscale = r * red + g * green + b * blue;
+
+                data[i] = grayscale;
+                data[i + 1] = grayscale;
+                data[i + 2] = grayscale;
+
+                // data[i] = r*red;
+                // data[i + 1] = g*green;
+                // data[i + 2] = b*blue;
+            }
+            const end = performance.now();
+            ctx.putImageData(imageData, 0, 0);
+            document.getElementById('grayed-img').src = canvas.toDataURL();
+            document.getElementById('js-time').textContent = (end - start).toFixed(2);
+        }
+
+        let wasmModule;
+
+        // Load and instantiate the WebAssembly module
+        fetch('grayscale.wasm').then(response =>
+            response.arrayBuffer()
+        ).then(bytes => {
+            return WebAssembly.instantiate(bytes);
+        }
+        ).then(results => {
+            wasmModule = results.instance;
+        });
+
+        function convertToGrayscaleWasm() {
+            loadImage();
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.willReadFrequently = true;
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            const red = parseFloat(document.getElementById('txt-red').value);
+            const blue = parseFloat(document.getElementById('txt-blue').value);
+            const green = parseFloat(document.getElementById('txt-green').value);
+
+            const start = performance.now();
+            // wasmModule.exports.convertToGrayscale(canvas.width, canvas.height, data, red, blue, green);
+            wasmModule.exports.convertToGrayscale(data.length, data, red, blue, green);
+            const end = performance.now();
+
+            ctx.putImageData(imageData, 0, 0);
+            document.getElementById('grayed-img').src = canvas.toDataURL();
+            document.getElementById('js-time').textContent = (end - start).toFixed(2);
+        }
+
+    </script>
+</body>
+
+</html>

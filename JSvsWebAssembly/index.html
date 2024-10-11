@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibonacci Performance Test</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid black;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+        </style>
+</head>
+
+<body>
+    <h1>Fibonacci Performance Test</h1>
+    <p>
+        <label>Enter comma separated list of number to calculate Fibonacci</label>
+        <input name="n" id="n" value="10, 100, 500, 1000, 2500, 5000, 8000, 10000" type="text" />
+    </p>
+    <!-- <p>Fibonacci Number (JavaScript): <span id="js-result"></span></p>
+    <p>Execution Time (JavaScript): <span id="js-time"></span> ms</p>
+
+    <button onclick="calculateFibonacciJS()">Run JS</button>
+    <p>Fibonacci Number (WebAssembly): <span id="wasm-result"></span></p>
+    <p>Execution Time (WebAssembly): <span id="wasm-time"></span> ms</p> -->
+
+    <div>
+        <!-- <button onclick="calculateFibonacciWasm()">Run WASM</button> -->
+        <button onclick="runBoth()">Run</button>
+    </div>
+
+    <a href="./grayscale.html">Go to Grayscale Tool</a>
+
+    <div>
+        <table id="result">
+            <tr>
+                <th>Value</th>
+                <th>JS Result</th>
+                <th>WA Result</th>
+                <th>JS Execution Time (ms)</th>
+                <th>WA Execution Time (ms)</th>
+            </th>
+        </table>
+    </div>
+
+    <script>
+        function runBoth() {
+            const numbers = document.getElementById('n').value.split(',').map(n => parseInt(n));
+            const resultTable = document.getElementById('result');
+            resultTable.innerHTML = '<tr><th>Value</th><th>JS Execution Time (ms)</th><th>WA Execution Time (ms)</th></tr>';
+            // resultTable.innerHTML = '<tr><th>Value</th><th>JS Result</th><th>WA Result</th><th>JS Execution Time (ms)</th><th>WA Execution Time (ms)</th></tr>';
+            resultTable.innerHTML += numbers.map(n => {
+                const startJS = performance.now();
+                const resultJS = fibonacciSumJS(n);
+                const endJS = performance.now();
+
+                const startWA = performance.now();
+                const resultWA = wasmModule.exports.fibonacciSum(n);
+                const endWA = performance.now();
+
+                // return `<tr><td>${n}</td><td>${resultJS}</td><td>${resultWA}</td><td>${(endJS - startJS).toFixed(4)}</td><td>${(endWA - startWA).toFixed(4)}</td></tr>`;
+                return `<tr><td>${n}</td><td>${(endJS - startJS).toFixed(4)}</td><td>${(endWA - startWA).toFixed(4)}</td></tr>`;
+            }).join('');
+        }
+
+        // Create an array for memoization
+        var result = Array(10000).fill(0);
+
+        // Returns n'th Fibonacci number using table f
+        function fibonacciJS(n) {
+            // Base cases
+            if (n == 0)
+                return 0;
+            if (n == 1 || n == 2)
+                return (result[n] = 1);
+
+            // If fib(n) is already computed
+            if (result[n] > 0)
+                return result[n];
+
+            var k = ((n & 1) > 0) ? (n + 1) / 2 : n / 2;
+
+            // Applying above formula [Note value n&1 is 1
+            // if n is odd, else 0].
+            result[n] = (n & 1) > 0 ? (fibonacciJS(k) * fibonacciJS(k) + fibonacciJS(k - 1) * fibonacciJS(k - 1)) : (2 * fibonacciJS(k - 1) + fibonacciJS(k)) * fibonacciJS(k);
+
+            return result[n];
+        }
+
+        // Computes value of first Fibonacci numbers
+        function fibonacciSumJS(n) {
+            // return fibonacciJS(n + 2) - 1;
+            let a = 0, b = 0, sumf = 1;
+            if (n <= 0)
+                sumf = 0;
+            let curr = 1;
+            for (let i = 1; i < n; i++) {
+                a = b;
+                b = curr;
+                curr = a + b;
+                sumf += curr;
+            }
+            return sumf;
+        }
+
+        function calculateFibonacciJS() {
+            const n = parseInt(document.getElementById('n').value);
+            const start = performance.now();
+            const result = fibonacciSumJS(n);
+            const end = performance.now();
+
+            document.getElementById('js-result').textContent = result;
+            document.getElementById('js-time').textContent = (end - start).toFixed(2);
+        }
+
+        let wasmModule;
+
+        // Load and instantiate the WebAssembly module
+        fetch('fibonacci.wasm').then(response =>
+            response.arrayBuffer()
+        ).then(bytes =>
+            WebAssembly.instantiate(bytes)
+        ).then(results => {
+            wasmModule = results.instance;
+        });
+
+        function calculateFibonacciWasm() {
+            const n = parseInt(document.getElementById('n').value);
+            const start = performance.now();
+            const result = wasmModule.exports.fibonacciSum(n);
+            const end = performance.now();
+
+            document.getElementById('wasm-result').textContent = result;
+            document.getElementById('wasm-time').textContent = (end - start).toFixed(2);
+        }
+    </script>
+</body>
+
+</html>
